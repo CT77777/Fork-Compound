@@ -455,7 +455,6 @@ abstract contract CToken is CTokenInterface, ExponentialNoError, TokenErrorRepor
      * @param redeemTokens The number of cTokens to redeem into underlying
      */
     function redeemInternal(uint redeemTokens) internal nonReentrant {
-        console.log("123");
         accrueInterest();
         // redeemFresh emits redeem-specific logs on errors, so we don't need to
         redeemFresh(payable(msg.sender), redeemTokens, 0);
@@ -482,7 +481,6 @@ abstract contract CToken is CTokenInterface, ExponentialNoError, TokenErrorRepor
      */
     function redeemFresh(address payable redeemer, uint redeemTokensIn, uint redeemAmountIn) internal {
         require(redeemTokensIn == 0 || redeemAmountIn == 0, "one of redeemTokensIn or redeemAmountIn must be zero");
-        console.log("456");
         /* exchangeRate = invoke Exchange Rate Stored() */
         Exp memory exchangeRate = Exp({mantissa: exchangeRateStoredInternal() });
 

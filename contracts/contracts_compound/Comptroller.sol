@@ -279,7 +279,7 @@ contract Comptroller is ComptrollerV7Storage, ComptrollerInterface, ComptrollerE
      * @return 0 if the redeem is allowed, otherwise a semi-opaque error code (See ErrorReporter.sol)
      */
     function redeemAllowed(address cToken, address redeemer, uint redeemTokens) override external returns (uint) {
-        console.log("789");
+       
         uint allowed = redeemAllowedInternal(cToken, redeemer, redeemTokens);
         if (allowed != uint(Error.NO_ERROR)) {
             return allowed;
@@ -293,16 +293,16 @@ contract Comptroller is ComptrollerV7Storage, ComptrollerInterface, ComptrollerE
     }
 
     function redeemAllowedInternal(address cToken, address redeemer, uint redeemTokens) internal view returns (uint) {
-        console.log("888");
+        
         if (!markets[cToken].isListed) {
             return uint(Error.MARKET_NOT_LISTED);
         }
-        console.log("999");
+        
         /* If the redeemer is not 'in' the market, then we can bypass the liquidity check */
         if (!markets[cToken].accountMembership[redeemer]) {
             return uint(Error.NO_ERROR);
         }
-        console.log("777");
+
         /* Otherwise, perform a hypothetical liquidity check to guard against shortfall */
         (Error err, , uint shortfall) = getHypotheticalAccountLiquidityInternal(redeemer, CToken(cToken), redeemTokens, 0);
         if (err != Error.NO_ERROR) {

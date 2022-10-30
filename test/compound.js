@@ -94,11 +94,6 @@ describe("CERC20", function () {
     );
   });
 
-  it("enter market", async function () {
-    const { comptroller, erc20 } = await loadFixture(deployCompound);
-    await comptroller.enterMarkets([erc20.address]);
-  });
-
   it("Check mint function", async function () {
     const { CErc20, erc20, comptroller, owner } = await loadFixture(
       deployCompound
