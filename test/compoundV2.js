@@ -173,7 +173,7 @@ describe("🔥Fork Compound Test🔥", function () {
   });
 
   describe("Compound borrow/repay function", function () {
-    it("User can borrow A token by collateralize B token", async function () {
+    it("User can borrow A token by collateralizing B token", async function () {
       const {
         owner,
         user1,
@@ -226,7 +226,7 @@ describe("🔥Fork Compound Test🔥", function () {
   });
 
   describe("Compound liquidation function", function () {
-    it("Execute liquidation by modify token B collateral factor", async function () {
+    it("Execute liquidation by modifying token B collateral factor", async function () {
       const {
         owner,
         user1,
@@ -309,6 +309,93 @@ describe("🔥Fork Compound Test🔥", function () {
       //25*1*1.2*(1-0.028)/100
       expect(await CErc20_2.balanceOf(user2.address)).to.equal(
         ethers.utils.parseUnits("0.2916", 18)
+      );
+    });
+
+    it("Execute liquidation by modifying token B price", async function () {
+      const {
+        owner,
+        user1,
+        user2,
+        erc20,
+        erc20_2,
+        CErc20,
+        CErc20_2,
+        priceOracle,
+        comptroller,
+      } = await loadFixture(deployCompound);
+
+      //List token A/B on compound
+      await comptroller._supportMarket(CErc20.address);
+      await comptroller._supportMarket(CErc20_2.address);
+
+      //Set token A price
+      await priceOracle.setUnderlyingPrice(
+        CErc20.address,
+        ethers.utils.parseUnits("1", 18)
+      );
+      //Set token B price
+      await priceOracle.setUnderlyingPrice(
+        CErc20_2.address,
+        ethers.utils.parseUnits("100", 18)
+      );
+      //Set token B collateral factor
+      await comptroller._setCollateralFactor(
+        CErc20_2.address,
+        ethers.utils.parseUnits("0.5", 18)
+      );
+
+      //Set close factor
+      await comptroller._setCloseFactor(ethers.utils.parseUnits("0.5", 18));
+
+      //Set liquidation incentive
+      await comptroller._setLiquidationIncentive(
+        ethers.utils.parseUnits("1.2", 18)
+      );
+
+      //Mint token A and supply token A into compound
+      await erc20.connect(user1).mint(ethers.utils.parseUnits("100", 18));
+      await erc20
+        .connect(user1)
+        .approve(CErc20.address, ethers.utils.parseUnits("1000", 18));
+      await CErc20.connect(user1).mint(ethers.utils.parseUnits("100", 18));
+
+      //Mint token B and supply token B into compound
+      await erc20_2.connect(user1).mint(ethers.utils.parseUnits("10", 18));
+      await erc20_2
+        .connect(user1)
+        .approve(CErc20_2.address, ethers.utils.parseUnits("1000", 18));
+      await CErc20_2.connect(user1).mint(ethers.utils.parseUnits("1", 18));
+
+      //Collateralize token B and borrow token A
+      await comptroller.connect(user1).enterMarkets([CErc20_2.address]);
+      await CErc20.connect(user1).borrow(ethers.utils.parseUnits("50", 18));
+
+      //Modify token B price
+      await priceOracle.setUnderlyingPrice(
+        CErc20_2.address,
+        ethers.utils.parseUnits("80", 18)
+      );
+
+      //user2 liquidate user1
+      await erc20.connect(user2).mint(ethers.utils.parseUnits("50", 18));
+      await erc20
+        .connect(user2)
+        .approve(CErc20.address, ethers.utils.parseUnits("1000", 18));
+      await CErc20.connect(user2).liquidateBorrow(
+        user1.address,
+        ethers.utils.parseUnits("25", 18),
+        CErc20_2.address
+      );
+
+      //check user2 remained token A after repay user1 borrow
+      expect(await erc20.balanceOf(user2.address)).to.equal(
+        ethers.utils.parseUnits("25", 18)
+      );
+      //protocolSeizeShareMantissa = 2.8%
+      //25*1*1.2*(1-0.028)/80
+      expect(await CErc20_2.balanceOf(user2.address)).to.equal(
+        ethers.utils.parseUnits("0.3645", 18)
       );
     });
   });
