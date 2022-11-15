@@ -13,7 +13,10 @@ describe("Transfer USDC", function () {
 
   it("BinanceWallet should contain USDC", async function () {
     // accounts = await ethers.getSigners();
-    usdc = await ethers.getContractAt("ERC20", usdcAddress);
+    usdc = await ethers.getContractAt(
+      "@openzeppelin/contracts/token/ERC20/ERC20.sol:ERC20",
+      usdcAddress
+    );
     let balance = await usdc.balanceOf(binanceHotWalletAddress);
     expect(balance).to.gt(0);
     console.log(`Binance wallet USDC balance:${balance}`);
