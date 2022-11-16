@@ -298,7 +298,7 @@ describe("🔥Fork Compound Test🔥", function () {
     //   interestRateModel = interestRateModelc;
     // });
 
-    it("User2 liquidate user1 by repaying USDC to get UNI", async function () {
+    it("User2 liquidate user1 by repaying self USDC to get UNI", async function () {
       const {
         owner,
         user1,
@@ -385,7 +385,7 @@ describe("🔥Fork Compound Test🔥", function () {
       //user1 collateralize 1000 UNI to borrow 5000 USDC
       await uni
         .connect(user1)
-        .approve(CErc20UNI.address, ethers.utils.parseUnits("2000", 18));
+        .approve(CErc20UNI.address, ethers.utils.parseUnits("10000", 18));
       await usdc
         .connect(user2)
         .approve(CErc20USDC.address, ethers.utils.parseUnits("10000", 6));
@@ -411,6 +411,121 @@ describe("🔥Fork Compound Test🔥", function () {
       );
 
       expect(await CErc20UNI.balanceOf(user2.address)).to.greaterThan(0);
+      expect(await CErc20UNI.balanceOf(user1.address)).to.lessThan(
+        ethers.utils.parseUnits("1000", 18)
+      );
+      expect(await usdc.balanceOf(user2.address)).to.equal(
+        ethers.utils.parseUnits("500", 6)
+      );
+    });
+
+    it("User2 use flash loan to liquidate user1", async function () {
+      const {
+        owner,
+        user1,
+        user2,
+        comptroller,
+        priceOracle,
+        interestRateModel,
+      } = await loadFixture(deployCompound);
+
+      //deploy cToken UNI on Compound
+      const CErc20UNIFactory = await ethers.getContractFactory(
+        "CErc20Immutable"
+      );
+      const CErc20UNI = await CErc20UNIFactory.deploy(
+        uniAddress,
+        comptroller.address,
+        interestRateModel.address,
+        ethers.utils.parseUnits("1", 18),
+        "compound UNI",
+        "cUNI",
+        18,
+        owner.address
+      );
+      await CErc20UNI.deployed();
+
+      //deploy cToken USDC on Compound
+      const CErc20USDCFactory = await ethers.getContractFactory(
+        "CErc20Immutable"
+      );
+      const CErc20USDC = await CErc20USDCFactory.deploy(
+        usdcAddress,
+        comptroller.address,
+        interestRateModel.address,
+        ethers.utils.parseUnits("1", 18),
+        "compound UNI",
+        "cUNI",
+        18,
+        owner.address
+      );
+      await CErc20USDC.deployed();
+
+      //List UNI/USDC on Compound
+      await comptroller._supportMarket(CErc20UNI.address);
+      await comptroller._supportMarket(CErc20USDC.address);
+
+      //Set UNI/USDC price
+      await priceOracle.setUnderlyingPrice(
+        CErc20UNI.address,
+        ethers.utils.parseUnits("10", 18)
+      );
+      await priceOracle.setUnderlyingPrice(
+        CErc20USDC.address,
+        ethers.utils.parseUnits("1", 30)
+      );
+
+      //Set close factor
+      await comptroller._setCloseFactor(ethers.utils.parseUnits("0.5", 18));
+
+      //Set liquidation incentive
+      await comptroller._setLiquidationIncentive(
+        ethers.utils.parseUnits("1.08", 18)
+      );
+
+      //Set UNI collateral factor
+      await comptroller._setCollateralFactor(
+        CErc20UNI.address,
+        ethers.utils.parseUnits("0.5", 18)
+      );
+
+      //Impersonate wallet to get UNI / USDC
+      let binanceWalletAddress = "0xf977814e90da44bfa03b6295a0616a897441acec";
+      await impersonateAccount(binanceWalletAddress);
+      const binanceWallet = await ethers.getSigner(binanceWalletAddress);
+      let erc20ABI = "@openzeppelin/contracts/token/ERC20/ERC20.sol:ERC20";
+      usdc = await ethers.getContractAt(erc20ABI, usdcAddress);
+      uni = await ethers.getContractAt(erc20ABI, uniAddress);
+      await uni
+        .connect(binanceWallet)
+        .transfer(user1.address, ethers.utils.parseUnits("1000", 18));
+      await usdc
+        .connect(binanceWallet)
+        .transfer(user2.address, ethers.utils.parseUnits("5000", 6));
+
+      //user2 supply USDC into Compound
+      await usdc
+        .connect(user2)
+        .approve(CErc20USDC.address, ethers.utils.parseUnits("10000", 6));
+      await CErc20USDC.connect(user2).mint(ethers.utils.parseUnits("5000", 6));
+
+      //user1 collateralize 1000 UNI to borrow 5000 USDC
+      await uni
+        .connect(user1)
+        .approve(CErc20UNI.address, ethers.utils.parseUnits("10000", 18));
+      await CErc20UNI.connect(user1).mint(ethers.utils.parseUnits("1000", 18));
+      await comptroller.connect(user1).enterMarkets([CErc20UNI.address]);
+      await CErc20USDC.connect(user1).borrow(
+        ethers.utils.parseUnits("5000", 6)
+      );
+
+      //modify UNI price to $6.2 to make shortfall
+      await priceOracle.setUnderlyingPrice(
+        CErc20UNI.address,
+        ethers.utils.parseUnits("6.2", 18)
+      );
+
+      //user2 use flash loan to liquidate user1
     });
   });
 });
