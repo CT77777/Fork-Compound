@@ -429,6 +429,9 @@ describe("🔥Fork Compound Test🔥", function () {
         interestRateModel,
       } = await loadFixture(deployCompound);
 
+      let lendingPoolAddressesProviderAddress =
+        "0xB53C1a33016B2DC2fF3653530bfF1848a515c8c5";
+
       //deploy cToken UNI on Compound
       const CErc20UNIFactory = await ethers.getContractFactory(
         "CErc20Immutable"
@@ -526,6 +529,15 @@ describe("🔥Fork Compound Test🔥", function () {
       );
 
       //user2 use flash loan to liquidate user1
+      const flashLoanFactory = await ethers.getContractFactory("flashLoan");
+      const flashLoan = await flashLoanFactory.deploy(
+        lendingPoolAddressesProviderAddress
+      );
+      await flashLoan.deployed();
+      flashLoan
+        .connect(user2)
+        .setTarget(user1.address, CErc20USDC.address, CErc20UNI.address);
+      flashLoan.connect(user2).myFlashLoanCall();
     });
   });
 });
