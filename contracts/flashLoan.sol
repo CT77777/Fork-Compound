@@ -5,11 +5,12 @@ pragma experimental ABIEncoderV2;
 
 import "@aave/protocol-v2/contracts/flashloan/base/FlashLoanReceiverBase.sol";
 import "hardhat/console.sol";
+// import "@aave/protocol-v2/contracts/dependencies/openzeppelin/contracts/IERC20.sol";
 // import "./interface/Compound/CTokenInterfaces.sol";
 // import "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
 
 
- interface CTokenInterface {
+interface CTokenInterface {
     function transfer(address dst, uint amount) virtual external returns (bool);
     function transferFrom(address src, address dst, uint amount) virtual external returns (bool);
     function approve(address spender, uint amount) virtual external returns (bool);
@@ -48,7 +49,9 @@ interface ISwapRouter {
     function exactInputSingle(ExactInputSingleParams calldata params) external payable returns (uint256 amountOut);
 }
 
+
 contract flashLoan is FlashLoanReceiverBase {
+   
     constructor(ILendingPoolAddressesProvider _providerAddress) FlashLoanReceiverBase(_providerAddress) public {}
     
     address public userBeLiquidated; //user1
@@ -73,6 +76,10 @@ contract flashLoan is FlashLoanReceiverBase {
     bytes calldata params
   ) external override returns (bool) {
     console.log("888");
+
+    //approve flashLoan USDC allowance to cToken_USDC
+    IERC20(USDC_ADDRESS).approve(address(cTokenBeLiquidated), 10000*10**6);
+
     //liquidate USDC of user1
     cTokenBeLiquidated.liquidateBorrow(userBeLiquidated, amounts[0], cTokenIncentive);
    
@@ -80,7 +87,7 @@ contract flashLoan is FlashLoanReceiverBase {
     //redeem UNI 
     uint256 redeemAmount = cTokenIncentive.balanceOf(address(this));
     cTokenIncentive.redeem(redeemAmount);
-     console.log("777");
+    console.log("777");
 
     //exchange UNI for USDC by uniSwap
     ISwapRouter.ExactInputSingleParams memory swapParams =
@@ -94,14 +101,20 @@ contract flashLoan is FlashLoanReceiverBase {
         amountOutMinimum: 0,
         sqrtPriceLimitX96: 0
     });
+    console.log("777");
+
+    //approve flashLoan UNI allowane to uniSwap_swapRouter
+    IERC20(UNI_ADDRESS).approve(address(swapRouter), 10000*10**18);
 
     uint256 amountOut = swapRouter.exactInputSingle(swapParams);
+    console.log("77777");
+    console.log(amountOut);
 
     for (uint i = 0; i < assets.length; i++) {
             uint amountOwing = amounts[i].add(premiums[i]);
             IERC20(assets[i]).approve(address(LENDING_POOL), amountOwing);
         }
-
+    console.log("11111");
     return true;
   }
 
