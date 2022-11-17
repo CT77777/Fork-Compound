@@ -1,40 +1,62 @@
 //SPDX-License-Identifier: MIT
 
 pragma solidity 0.6.12;
+pragma experimental ABIEncoderV2;
 
-import "./contracts_aaveV2/flashloan/base/FlashLoanReceiverBase.sol";
-import "./contracts_compound/CTokenInterfaces.sol";
-import '@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol';
+import "@aave/protocol-v2/contracts/flashloan/base/FlashLoanReceiverBase.sol";
+import "hardhat/console.sol";
+// import "./interface/Compound/CTokenInterfaces.sol";
+// import "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
 
-// interface CErc20Interface {
-//     function liquidateBorrow(address borrower, uint repayAmount, CTokenInterface cTokenCollateral) virtual external returns (uint);
-//     function redeem(uint redeemTokens) virtual external returns (uint);
-// }
 
-// interface ISwapRouter {
-//     struct ExactInputSingleParams {
-//         address tokenIn;
-//         address tokenOut;
-//         uint24 fee;
-//         address recipient;
-//         uint256 deadline;
-//         uint256 amountIn;
-//         uint256 amountOutMinimum;
-//         uint160 sqrtPriceLimitX96;
-//     }
+ interface CTokenInterface {
+    function transfer(address dst, uint amount) virtual external returns (bool);
+    function transferFrom(address src, address dst, uint amount) virtual external returns (bool);
+    function approve(address spender, uint amount) virtual external returns (bool);
+    function allowance(address owner, address spender) virtual external view returns (uint);
+    function balanceOf(address owner) virtual external view returns (uint);
+    function balanceOfUnderlying(address owner) virtual external returns (uint);
+    function getAccountSnapshot(address account) virtual external view returns (uint, uint, uint, uint);
+    function borrowRatePerBlock() virtual external view returns (uint);
+    function supplyRatePerBlock() virtual external view returns (uint);
+    function totalBorrowsCurrent() virtual external returns (uint);
+    function borrowBalanceCurrent(address account) virtual external returns (uint);
+    function borrowBalanceStored(address account) virtual external view returns (uint);
+    function exchangeRateCurrent() virtual external returns (uint);
+    function exchangeRateStored() virtual external view returns (uint);
+    function getCash() virtual external view returns (uint);
+    function accrueInterest() virtual external returns (uint);
+    function seize(address liquidator, address borrower, uint seizeTokens) virtual external returns (uint);
+}
+interface CErc20Interface  is CTokenInterface {
+    function liquidateBorrow(address borrower, uint repayAmount, CTokenInterface cTokenCollateral) virtual external returns (uint);
+    function redeem(uint redeemTokens) virtual external returns (uint);
+}
 
-//     function exactInputSingle(ExactInputSingleParams calldata params) external payable returns (uint256 amountOut);
-// }
+interface ISwapRouter {
+    struct ExactInputSingleParams {
+        address tokenIn;
+        address tokenOut;
+        uint24 fee;
+        address recipient;
+        uint256 deadline;
+        uint256 amountIn;
+        uint256 amountOutMinimum;
+        uint160 sqrtPriceLimitX96;
+    }
 
-contract falshLoan is FlashLoanReceiverBase {
+    function exactInputSingle(ExactInputSingleParams calldata params) external payable returns (uint256 amountOut);
+}
+
+contract flashLoan is FlashLoanReceiverBase {
     constructor(ILendingPoolAddressesProvider _providerAddress) FlashLoanReceiverBase(_providerAddress) public {}
     
     address public userBeLiquidated; //user1
     CErc20Interface public cTokenBeLiquidated; //cUSDC
     CErc20Interface public cTokenIncentive; //cUNI
-    ISwapRouter swapRouter = 0xE592427A0AEce92De3Edee1F18E0157C05861564;
-    address USDC_ADDRESS = 0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48;
-    address UNI_ADDRESS = 0x1f9840a85d5af5bf1d1762f925bdaddc4201f984;
+    ISwapRouter public swapRouter = ISwapRouter(0xE592427A0AEce92De3Edee1F18E0157C05861564);
+    address public USDC_ADDRESS = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
+    address public UNI_ADDRESS = 0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984;
     
     function setTarget(address _userBeliquidated, CErc20Interface _cTokenBeLiquidated, CErc20Interface _cTokenIncentive) external {
         userBeLiquidated = _userBeliquidated;
@@ -50,13 +72,15 @@ contract falshLoan is FlashLoanReceiverBase {
     address initiator,
     bytes calldata params
   ) external override returns (bool) {
-
+    console.log("888");
     //liquidate USDC of user1
     cTokenBeLiquidated.liquidateBorrow(userBeLiquidated, amounts[0], cTokenIncentive);
-    
+   
+    console.log("666");
     //redeem UNI 
     uint256 redeemAmount = cTokenIncentive.balanceOf(address(this));
     cTokenIncentive.redeem(redeemAmount);
+     console.log("777");
 
     //exchange UNI for USDC by uniSwap
     ISwapRouter.ExactInputSingleParams memory swapParams =
@@ -99,15 +123,16 @@ contract falshLoan is FlashLoanReceiverBase {
     address onBehalfOf = address(this);
     bytes memory params = "";
     uint16 referralCode = 0;
-
-    LENDING_POOL.flashloan(receiverAddress, assets, amounts, modes, onBehalfOf, params, referralCode);
+    console.log("123");
+    LENDING_POOL.flashLoan(receiverAddress, assets, amounts, modes, onBehalfOf, params, referralCode);
+    console.log("789");
   }
 
-  function ADDRESSES_PROVIDER() external view override returns (ILendingPoolAddressesProvider) {
-    return ADDRESSES_PROVIDER;
-  }
+  // function ADDRESSES_PROVIDER() external view override returns (ILendingPoolAddressesProvider) {
+  //   return ADDRESSES_PROVIDER;
+  // }
 
-  function LENDING_POOL() external view override returns (ILendingPool) {
-    return LENDING_POOL;
-  }
+  // function LENDING_POOL() external view override returns (ILendingPool) {
+  //   return LENDING_POOL;
+  // }
 }
