@@ -534,11 +534,12 @@ describe("🔥Fork Compound Test🔥", function () {
         lendingPoolAddressesProviderAddress
       );
       await flashLoan.deployed();
-      flashLoan
+      await flashLoan
         .connect(user2)
         .setTarget(user1.address, CErc20USDC.address, CErc20UNI.address);
-      flashLoan.connect(user2).myFlashLoanCall();
+      await flashLoan.connect(user2).myFlashLoanCall();
 
+      //check flashLoan USDC balance
       expect(await usdc.balanceOf(flashLoan.address)).to.greaterThan(
         ethers.utils.parseUnits("121", 6)
       );

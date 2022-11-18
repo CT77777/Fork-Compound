@@ -109,7 +109,8 @@ contract flashLoan is FlashLoanReceiverBase {
     uint256 amountOut = swapRouter.exactInputSingle(swapParams);
     console.log("77777");
     console.log(amountOut);
-
+    
+    //approve flashLoan USDC allowance to LendingPool
     for (uint i = 0; i < assets.length; i++) {
             uint amountOwing = amounts[i].add(premiums[i]);
             IERC20(assets[i]).approve(address(LENDING_POOL), amountOwing);
