@@ -75,7 +75,6 @@ contract flashLoan is FlashLoanReceiverBase {
     address initiator,
     bytes calldata params
   ) external override returns (bool) {
-    console.log("888");
 
     //approve flashLoan USDC allowance to cToken_USDC
     IERC20(USDC_ADDRESS).approve(address(cTokenBeLiquidated), 10000*10**6);
@@ -83,11 +82,9 @@ contract flashLoan is FlashLoanReceiverBase {
     //liquidate USDC of user1
     cTokenBeLiquidated.liquidateBorrow(userBeLiquidated, amounts[0], cTokenIncentive);
    
-    console.log("666");
     //redeem UNI 
     uint256 redeemAmount = cTokenIncentive.balanceOf(address(this));
     cTokenIncentive.redeem(redeemAmount);
-    console.log("777");
 
     //exchange UNI for USDC by uniSwap
     ISwapRouter.ExactInputSingleParams memory swapParams =
@@ -101,21 +98,19 @@ contract flashLoan is FlashLoanReceiverBase {
         amountOutMinimum: 0,
         sqrtPriceLimitX96: 0
     });
-    console.log("777");
 
     //approve flashLoan UNI allowane to uniSwap_swapRouter
     IERC20(UNI_ADDRESS).approve(address(swapRouter), 10000*10**18);
 
     uint256 amountOut = swapRouter.exactInputSingle(swapParams);
-    console.log("77777");
-    console.log(amountOut);
+    console.log("USDC swapped from liquidated UNI:", amountOut, "USDC");
     
     //approve flashLoan USDC allowance to LendingPool
     for (uint i = 0; i < assets.length; i++) {
             uint amountOwing = amounts[i].add(premiums[i]);
             IERC20(assets[i]).approve(address(LENDING_POOL), amountOwing);
         }
-    console.log("11111");
+    
     return true;
   }
 
@@ -137,9 +132,13 @@ contract flashLoan is FlashLoanReceiverBase {
     address onBehalfOf = address(this);
     bytes memory params = "";
     uint16 referralCode = 0;
-    console.log("123");
+   
     LENDING_POOL.flashLoan(receiverAddress, assets, amounts, modes, onBehalfOf, params, referralCode);
-    console.log("789");
+    
+  }
+
+  function withdrawProfit() external {
+    IERC20(USDC_ADDRESS).transfer(msg.sender, IERC20(USDC_ADDRESS).balanceOf(address(this)));
   }
 
   // function ADDRESSES_PROVIDER() external view override returns (ILendingPoolAddressesProvider) {

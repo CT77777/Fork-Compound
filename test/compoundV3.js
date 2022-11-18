@@ -543,6 +543,12 @@ describe("🔥Fork Compound Test🔥", function () {
       expect(await usdc.balanceOf(flashLoan.address)).to.greaterThan(
         ethers.utils.parseUnits("121", 6)
       );
+
+      //withdraw USDC from flahLoan contract
+      await flashLoan.connect(user2).withdrawProfit();
+      let usdcProfit = await usdc.balanceOf(user2.address);
+      expect(usdcProfit).to.greaterThan(ethers.utils.parseUnits("121", 6));
+      console.log("Final profit:", usdcProfit.toString(), "USDC");
     });
   });
 });
