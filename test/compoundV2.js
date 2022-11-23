@@ -3,6 +3,16 @@ const { ethers } = require("hardhat");
 const { loadFixture } = require("@nomicfoundation/hardhat-network-helpers");
 
 describe("🔥Fork Compound Test🔥", function () {
+  let owner;
+  let user1;
+  let user2;
+  let comptroller;
+  let priceOracle;
+  let erc20;
+  let erc20_2;
+  let CErc20;
+  let CErc20_2;
+
   async function deployCompound() {
     const [owner, user1, user2] = await ethers.getSigners();
 
@@ -17,7 +27,7 @@ describe("🔥Fork Compound Test🔥", function () {
     );
     const priceOracle = await priceOracleFactory.deploy();
     await priceOracle.deployed();
-    comptroller._setPriceOracle(priceOracle.address);
+    await comptroller._setPriceOracle(priceOracle.address);
 
     //deploy interest rate model
     const interestRateModelFactory = await ethers.getContractFactory(
@@ -82,10 +92,21 @@ describe("🔥Fork Compound Test🔥", function () {
     };
   }
 
+  beforeEach(async () => {
+    let fixture = await loadFixture(deployCompound);
+    owner = fixture.owner;
+    user1 = fixture.user1;
+    user2 = fixture.user2;
+    comptroller = fixture.comptroller;
+    priceOracle = fixture.priceOracle;
+    erc20 = fixture.erc20;
+    erc20_2 = fixture.erc20_2;
+    CErc20 = fixture.CErc20;
+    CErc20_2 = fixture.CErc20_2;
+  });
+
   describe("Deploy underlying token", function () {
     it("Deployer can get 1000 initial supply for token A", async function () {
-      const { erc20, owner } = await loadFixture(deployCompound);
-
       expect(await erc20.balanceOf(owner.address)).to.equal(
         ethers.utils.parseUnits("1000", 18)
       );
@@ -93,8 +114,6 @@ describe("🔥Fork Compound Test🔥", function () {
     });
 
     it("Deployer can get 1000 initial supply for token B", async function () {
-      const { erc20_2, owner } = await loadFixture(deployCompound);
-
       expect(await erc20_2.balanceOf(owner.address)).to.equal(
         ethers.utils.parseUnits("1000", 18)
       );
@@ -104,9 +123,6 @@ describe("🔥Fork Compound Test🔥", function () {
 
   describe("Compund mint/redeem function", function () {
     it("User can correctly supply Compound with 100 token A", async function () {
-      const { CErc20, erc20, comptroller, owner } = await loadFixture(
-        deployCompound
-      );
       await comptroller._supportMarket(CErc20.address);
       await erc20.approve(CErc20.address, ethers.utils.parseUnits("10000", 18));
       await CErc20.mint(ethers.utils.parseUnits("100", 18));
@@ -120,9 +136,6 @@ describe("🔥Fork Compound Test🔥", function () {
     });
 
     it("User can correctly redeem all 100 token A with cToken A", async function () {
-      const { CErc20, erc20, comptroller, owner } = await loadFixture(
-        deployCompound
-      );
       await comptroller._supportMarket(CErc20.address);
       await erc20.approve(CErc20.address, ethers.utils.parseUnits("10000", 18));
       await CErc20.mint(ethers.utils.parseUnits("100", 18));
@@ -134,9 +147,6 @@ describe("🔥Fork Compound Test🔥", function () {
     });
 
     it("User can correctly supply Compound with 500 token B", async function () {
-      const { CErc20_2, erc20_2, comptroller, owner } = await loadFixture(
-        deployCompound
-      );
       await comptroller._supportMarket(CErc20_2.address);
       await erc20_2.approve(
         CErc20_2.address,
@@ -153,9 +163,6 @@ describe("🔥Fork Compound Test🔥", function () {
     });
 
     it("User can correctly redeem partial 300 token B with cToken B", async function () {
-      const { CErc20_2, erc20_2, comptroller, owner } = await loadFixture(
-        deployCompound
-      );
       await comptroller._supportMarket(CErc20_2.address);
       await erc20_2.approve(
         CErc20_2.address,
@@ -173,18 +180,44 @@ describe("🔥Fork Compound Test🔥", function () {
   });
 
   describe("Compound borrow/repay function", function () {
-    it("User can borrow A token by collateralizing B token", async function () {
-      const {
-        owner,
-        user1,
-        erc20,
-        erc20_2,
-        CErc20,
-        CErc20_2,
-        priceOracle,
-        comptroller,
-      } = await loadFixture(deployCompound);
+    it("User should not be able to borrow A token when there's no enough collateral", async function () {
+      //List token A/B on compound
+      await comptroller._supportMarket(CErc20.address);
+      await comptroller._supportMarket(CErc20_2.address);
 
+      //Set token A price
+      await priceOracle.setUnderlyingPrice(
+        CErc20.address,
+        ethers.utils.parseUnits("1", 18)
+      );
+      //Set token B price
+      await priceOracle.setUnderlyingPrice(
+        CErc20_2.address,
+        ethers.utils.parseUnits("100", 18)
+      );
+      //Set token B collateral factor
+      await comptroller._setCollateralFactor(
+        CErc20_2.address,
+        ethers.utils.parseUnits("0.5", 18)
+      );
+
+      //Mint token A and supply token A into compound
+      await erc20.connect(user1).mint(ethers.utils.parseUnits("100", 18));
+      await erc20
+        .connect(user1)
+        .approve(CErc20.address, ethers.utils.parseUnits("1000", 18));
+      await CErc20.connect(user1).mint(ethers.utils.parseUnits("100", 18));
+
+      // await CErc20.connect(user1).borrow(ethers.utils.parseUnits("50", 18));
+
+      await expect(
+        CErc20.connect(user1).borrow(ethers.utils.parseUnits("50", 18))
+      )
+        .to.revertedWithCustomError(CErc20, "BorrowComptrollerRejection")
+        .withArgs(4);
+    });
+
+    it("User can borrow A token by collateralizing B token", async function () {
       //List token A/B on compound
       await comptroller._supportMarket(CErc20.address);
       await comptroller._supportMarket(CErc20_2.address);
@@ -221,24 +254,29 @@ describe("🔥Fork Compound Test🔥", function () {
 
       //Collateralize token B and borrow token A
       await comptroller.connect(user1).enterMarkets([CErc20_2.address]);
-      await CErc20.connect(user1).borrow(ethers.utils.parseUnits("50", 18));
+      // await CErc20.connect(user1).borrow(ethers.utils.parseUnits("50", 18));
+
+      expect(
+        await CErc20.connect(user1).borrow(ethers.utils.parseUnits("50", 18))
+      )
+        .to.emit(CErc20, "Borrow")
+        .withArgs(
+          user1.address,
+          ethers.utils.parseUnits("50", 18),
+          ethers.utils.parseUnits("50", 18),
+          ethers.utils.parseUnits("50", 18)
+        )
+        .to.changeEtherBalance(erc20, user1, ethers.utils.parseUnits("50", 18))
+        .to.changeEtherBalance(
+          CErc20_2,
+          user1,
+          ethers.utils.parseUnits("1", 18)
+        );
     });
   });
 
   describe("Compound liquidation function", function () {
     it("Execute liquidation by modifying token B collateral factor", async function () {
-      const {
-        owner,
-        user1,
-        user2,
-        erc20,
-        erc20_2,
-        CErc20,
-        CErc20_2,
-        priceOracle,
-        comptroller,
-      } = await loadFixture(deployCompound);
-
       //List token A/B on compound
       await comptroller._supportMarket(CErc20.address);
       await comptroller._supportMarket(CErc20_2.address);
@@ -313,18 +351,6 @@ describe("🔥Fork Compound Test🔥", function () {
     });
 
     it("Execute liquidation by modifying token B price", async function () {
-      const {
-        owner,
-        user1,
-        user2,
-        erc20,
-        erc20_2,
-        CErc20,
-        CErc20_2,
-        priceOracle,
-        comptroller,
-      } = await loadFixture(deployCompound);
-
       //List token A/B on compound
       await comptroller._supportMarket(CErc20.address);
       await comptroller._supportMarket(CErc20_2.address);
