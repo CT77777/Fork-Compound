@@ -60,7 +60,7 @@ modfiy enabled to true
 ```
 
 ```
-npx hardhat test/compoundV3.js
+npx hardhat test test/compoundV3.js
 ```
 
 6. 請使用 Hardhat 的 fork 模式撰寫測試，並使用 AAVE 的 Flash loan 來清算 user1，請遵循以下細節：
