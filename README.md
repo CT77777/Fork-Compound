@@ -8,7 +8,7 @@ Clone this repository, install Node.js dependencies, and build the source code:
 git clone git@github.com:CT77777/fork-Compound.git
 cd ./fork-Compound
 npm install
-build `.env` file and input ALCHEMY_API_KEY = XXXXX... (XXXXX... is your key)
+build `.env` file and input `ALCHEMY_API_KEY = XXXXX...` (XXXXX... is your key)
 ```
 
 ## Test Scripts
