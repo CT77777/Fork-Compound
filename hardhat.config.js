@@ -40,7 +40,7 @@ module.exports = {
   networks: {
     hardhat: {
       forking: {
-        enabled: true,
+        enabled: false,
         url: `https://eth-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`,
         blockNumber: 15815693,
       },
